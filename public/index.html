@@ -1,86 +1,121 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#121411"><title>Um Goblin — feed fewer fillers</title>
-  <link rel="stylesheet" href="/style.css">
-</head>
-<body>
-  <div class="shell">
-    <header class="topbar">
-      <a class="brand" href="/" aria-label="Um Goblin home"><span class="brand-mark">u<span>m</span></span><span>GOBLIN<span class="brand-dot">.</span></span></a>
-      <div class="top-actions"><span class="live-pill"><i></i> YOUR PRACTICE LAIR</span><button id="reset" class="quiet-button" type="button">↻ <span>Reset</span></button></div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#111610" />
+    <meta name="description" content="A tiny speaking practice with a big appetite. Feed the goblin your filler words, then practice until it starves." />
+    <title>Um Goblin — speaking practice with a big appetite</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script defer src="./app.js"></script>
+  </head>
+  <body class="ug-body">
+    <a class="ug-skip-link" href="#ug-main">Skip to the story</a>
+    <header class="ug-topbar">
+      <a class="ug-brand" href="#top" aria-label="Um Goblin home">
+        <span class="ug-brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" role="presentation"><path d="M5 12 2 5l9 3a15 15 0 0 1 10 0l9-3-3 8v6a11 11 0 0 1-22 0z"/><circle cx="12" cy="17" r="1.5"/><circle cx="21" cy="17" r="1.5"/><path d="M12 22q4 3 9 0"/></svg>
+        </span>
+        <span class="ug-brand-word">um goblin<span class="ug-brand-period">.</span></span>
+      </a>
+      <div class="ug-topbar-right">
+        <span class="ug-topbar-note">A pocket-sized practice lair</span>
+        <button class="ug-reset-button" type="button" data-action="reset">Reset <span aria-hidden="true">↺</span></button>
+      </div>
     </header>
 
-    <main>
-      <section class="intro">
-        <div class="eyebrow"><span class="eyebrow-star">✳</span> A tiny speaking practice with a big appetite</div>
-        <h1>Every “um” you say<br><span>feeds a goblin.</span></h1>
-        <p class="promise">Practice until it starves.</p>
-      </section>
-
-      <nav class="entrances" aria-label="Choose your path">
-        <button class="entrance active" data-mode="story"><span class="entrance-icon">◉</span><span><b>Watch the story</b><small>90 sec · real human</small></span><span class="entrance-arrow">↗</span></button>
-        <button class="entrance" data-mode="try"><span class="entrance-icon">◌</span><span><b>Try it yourself</b><small>1 min · your voice</small></span><span class="entrance-arrow">↗</span></button>
-        <button class="entrance" data-mode="judge"><span class="entrance-icon">✳</span><span><b>I’m a judge</b><small>Proof &amp; plumbing</small></span><span class="entrance-arrow">↗</span></button>
-      </nav>
-
-      <section id="story" class="mode-panel">
-        <div class="story-layout">
-          <article class="person-card">
-            <div class="card-kicker"><span class="tiny-dot"></span> A REAL HUMAN EXAMPLE</div>
-            <div class="person-portrait" aria-hidden="true"><span class="orbit orbit-one"></span><span class="orbit orbit-two"></span><span class="portrait-star">✦</span><span class="portrait-initial">A</span><span class="portrait-caption">MISSION<br>CONTROL</span></div>
-            <div class="person-meta"><div><p id="speaker" class="speaker">Loading sample…</p><p id="source" class="source"></p></div><span class="public-badge">PUBLIC<br>DOMAIN</span></div>
-            <blockquote>“<span id="quote">A voice from far beyond the ordinary.</span>”</blockquote>
-            <div class="situation"><span>THE MOMENT</span><p id="story-situation">Loading the story…</p><span class="question-label">THE QUESTION</span><p id="story-question">Loading the story…</p></div>
-          </article>
-          <article class="story-stage">
-            <div class="stage-head"><div><div class="card-kicker">THE GOBLIN’S FIRST MEAL</div><h2>One answer. Nine little snacks.</h2></div><span class="take-number">TAKE 01</span></div>
-            <div class="goblin-scene" id="goblin-scene">
-              <div class="scene-glow"></div><div class="scene-stars">✦ <span>·</span> ✧ <span>·</span> ✦</div>
-              <um-goblin id="goblin" rate="14.5" aria-label="A hungry goblin"></um-goblin>
-              <div class="scene-caption"><span class="pulse"></span><span id="mood-label">GOBLIN IS VERY WELL FED</span></div>
-            </div>
-            <div class="story-actions"><button class="button primary" id="play-story"><span>▶</span> Play the story</button><button class="button secondary" id="hear-sample">Hear the original <span>↗</span></button></div>
-            <p class="quiet-note">Watch what those tiny words do. Then give it a try.</p>
-          </article>
+    <main id="ug-main" class="ug-main">
+      <section id="top" class="ug-hero" aria-labelledby="ug-hero-title">
+        <div class="ug-hero-copy" id="ug-hero-copy"></div>
+        <div class="ug-hero-art-wrap" aria-label="An original green goblin, ready for a snack">
+          <div class="ug-art-orbit ug-art-orbit-one"></div>
+          <div class="ug-art-orbit ug-art-orbit-two"></div>
+          <span class="ug-art-spark ug-art-spark-one" aria-hidden="true">✦</span>
+          <span class="ug-art-spark ug-art-spark-two" aria-hidden="true">✳</span>
+          <div class="ug-goblin-art ug-goblin-hero" id="ug-hero-goblin" aria-hidden="true">
+            <svg viewBox="0 0 260 265" role="presentation" class="ug-goblin-svg">
+              <path class="ug-ear" d="M60 76 16 46l10 66 39-9M200 76l44-30-10 66-39-9" />
+              <path class="ug-ear-inner" d="m53 76-22-16 6 31m170-15 22-16-6 31" />
+              <path class="ug-goblin-body" d="M51 111c4-43 34-72 79-72s75 29 79 72l9 77c3 34-27 58-88 58s-91-24-88-58z" />
+              <path class="ug-brow" d="m77 111 29-8m48 0 29 8" />
+              <ellipse class="ug-eye" cx="98" cy="127" rx="8" ry="12" />
+              <ellipse class="ug-eye" cx="162" cy="127" rx="8" ry="12" />
+              <circle class="ug-eye-glint" cx="100" cy="123" r="2.3" />
+              <circle class="ug-eye-glint" cx="164" cy="123" r="2.3" />
+              <path class="ug-nose" d="m123 141 7 6 7-6" />
+              <path class="ug-mouth" id="ug-hero-mouth" d="M106 164q24 24 48 0" />
+              <path class="ug-tooth" d="m119 173 5 8 5-5 5 5 6-8" />
+              <path class="ug-cheek" d="M74 157q9 7 16 1m80-1q8 6 16-1" />
+              <path class="ug-tummy" d="M77 199q53-25 106 0" />
+              <path class="ug-foot" d="M78 237q-5 13 14 13h26l-8-14m61 1-8 13h26q19 0 14-13" />
+              <path class="ug-spot" d="m64 91 4-7 4 7m112 8 4-7 4 7m-58-40 4-7 4 7" />
+            </svg>
+          </div>
+          <div class="ug-art-caption"><span class="ug-status-pip"></span> currently snack-sized</div>
         </div>
       </section>
 
-      <section id="try" class="mode-panel hidden">
-        <div class="practice-card"><div class="card-kicker"><span class="tiny-dot"></span> YOUR TURN · UP TO 90 SECONDS</div><h2 id="practice-question">Tell me about a difficult situation at work.</h2><p class="practice-sub">Answer out loud, like you’re talking to a friend. Keep your answer and your fillers; the goblin needs a fair shot.</p>
-          <div class="record-box"><div class="record-orb" id="record-orb"><span></span></div><div class="record-copy"><strong id="record-status">Ready when you are</strong><small id="record-hint">Your recording stays in this practice lair.</small></div><div class="timer" id="timer">00:00</div></div>
-          <div class="practice-actions"><button class="button primary" id="record">● &nbsp; Start recording</button><label class="button secondary upload-button">↑ &nbsp; Upload a file<input id="upload" type="file" accept="audio/*"></label><button class="button secondary hidden" id="stop-record">Finish take</button></div><div id="record-error" class="error-message" role="alert"></div>
-        </div>
-      </section>
+      <nav class="ug-entry-nav" id="ug-entry-cards" aria-label="Choose your way in"></nav>
 
-      <section id="judge" class="mode-panel hidden">
-        <div class="judge-head"><div class="card-kicker"><span class="tiny-dot"></span> OPEN THE LAIR DOOR</div><h2>Show your work.</h2><p>Real connectors, real persistence, and honest limits.</p></div>
-        <div class="judge-grid"><article class="proof-card gate-card"><span class="proof-number">01 / CONNECTOR GATE</span><h3>No connector, no goblin.</h3><p>We send a tiny request through a deliberately bogus Deepgram connection and show the gateway’s real rejection.</p><button class="button secondary" id="gate-test">Test the gate <span>↗</span></button><pre id="gate-result" class="gate-result">Waiting for a gate test…</pre></article>
-          <article class="proof-card"><span class="proof-number">02 / SPRITE FACTS</span><h3>The lair remembers.</h3><p>This app runs on a Sprite, wakes on HTTP, and keeps each attempt on its disk. Connector gateways hold the keys.</p><div class="fact-list"><div><span>Your attempts</span><b id="history-count">—</b></div><div><span>Total attempts, all lairs</span><b id="global-history-count">—</b></div><div><span>Disk path</span><code id="data-path">Loading…</code></div><div><span>Sprite wake / previous visit</span><b id="sleep-time">—</b></div><div><span>Last request went through</span><b id="last-request">No request yet</b></div></div></article>
-          <article class="proof-card wide-proof"><span class="proof-number">03 / MEASURED NUMBERS</span><h3>What it catches (and what it misses).</h3><div class="table-wrap"><table><thead><tr><th>Measure</th><th>Result</th><th>Label</th></tr></thead><tbody><tr><td>Real human (NASA) clip</td><td>9 um/uh detected</td><td><span class="tag real">REAL</span></td></tr><tr><td>Synthetic TTS voices (6 voices × 2 tries)</td><td>Fillers mostly not detected — why this demo uses a real recording</td><td><span class="tag real">REAL FINDING</span></td></tr><tr><td>Goblin edit re-check</td><td id="clean-measure">Not run yet</td><td><span id="clean-measure-tag" class="tag target">PENDING</span></td></tr></tbody></table></div><p class="limitation">Known limit: only “um” and “uh” count today. Deepgram doesn’t tag “hmm” or “erm”. English only.</p><a class="repo-link" href="/README.md">Read the project README <span>↗</span></a></article>
+      <section class="ug-story-shell" id="ug-story" aria-labelledby="ug-story-title">
+        <div class="ug-story-heading">
+          <div>
+            <p class="ug-eyebrow"><span class="ug-eyebrow-dot"></span>The tiny demo, in four scenes</p>
+            <h2 id="ug-story-title">A little less “um.” A lot more you.</h2>
+          </div>
+          <div class="ug-story-controls">
+            <button class="ug-button ug-button-primary ug-story-play" type="button" data-action="play-story"><span class="ug-play-icon" aria-hidden="true">▶</span> Play the story</button>
+            <span class="ug-story-time" id="ug-story-time"></span>
+          </div>
         </div>
-      </section>
+        <nav class="ug-scene-nav" aria-label="Story scenes">
+          <a href="#ug-scene-take"><span class="ug-scene-nav-number" data-scene-number="0"></span><span>The answer</span></a>
+          <a href="#ug-scene-coach"><span class="ug-scene-nav-number" data-scene-number="1"></span><span>The coach</span></a>
+          <a href="#ug-scene-edit"><span class="ug-scene-nav-number" data-scene-number="2"></span><span>The edit</span></a>
+          <a href="#ug-scene-try"><span class="ug-scene-nav-number" data-scene-number="3"></span><span>Your turn</span></a>
+        </nav>
 
-      <section id="results" class="results hidden" aria-live="polite">
-        <div class="result-heading"><div><div class="card-kicker"><span class="tiny-dot"></span> TAKE COMPLETE</div><h2 id="result-title">Your goblin ate well.</h2></div><span id="coach-source" class="coach-source">COACH · CONNECTOR</span></div>
-        <div id="comparison" class="comparison hidden"></div>
-        <div class="clean-action-row"><button id="clean-action" class="button secondary">♫ &nbsp; Hear yourself without the ums</button><span id="clean-status" class="clean-status"></span></div>
-        <section id="clean-panel" class="clean-panel hidden" aria-live="polite">
-          <div class="clean-title"><div><div class="card-kicker"><span class="tiny-dot"></span> ORIGINAL ↔ GOBLIN EDIT</div><h3>Hear the same answer, edited.</h3></div><span id="clean-label" class="coach-source">LIVE RE-CHECK</span></div>
-          <p class="clean-disclaimer"><strong>Edited by the goblin — not a real second attempt. It shows the target; you still have to say it.</strong></p>
-          <div class="edit-players"><div class="edit-player"><span>ORIGINAL</span><audio id="original-audio" controls preload="none"></audio></div><div class="edit-arrow">↔</div><div class="edit-player"><span>GOBLIN EDIT</span><audio id="clean-audio" controls preload="none" disabled></audio><small id="clean-audio-note" class="hidden">Mock mode simulates the re-check; it does not create edited audio.</small></div></div>
-          <div id="clean-passes" class="clean-passes"></div>
-          <div class="clean-final"><div><span>FILLERS · RATE · LENGTH</span><b id="clean-comparison">—</b></div><p id="clean-transcript"></p></div>
-          <button id="now-you-try" class="button primary hidden">Now you try <span>→</span></button>
+        <article class="ug-scene-card ug-scene-answer" id="ug-scene-take" aria-labelledby="ug-take-title">
+          <div class="ug-scene-heading"><span class="ug-scene-index" data-scene-number="0"></span><div><p class="ug-kicker">A real voice, full of little pauses</p><h3 id="ug-take-title">The answer</h3></div><span class="ug-scene-tag">Real human audio</span></div>
+          <div id="ug-take-content"></div>
+        </article>
+
+        <article class="ug-scene-card" id="ug-scene-coach" aria-labelledby="ug-coach-title">
+          <div class="ug-scene-heading"><span class="ug-scene-index" data-scene-number="1"></span><div><p class="ug-kicker">Not a grade. A useful next step.</p><h3 id="ug-coach-title">What the coach noticed</h3></div><span class="ug-scene-tag ug-scene-tag-amber">A gentle nudge</span></div>
+          <div id="ug-coach-content"></div>
+        </article>
+
+        <article class="ug-scene-card" id="ug-scene-edit" aria-labelledby="ug-edit-title">
+          <div class="ug-scene-heading"><span class="ug-scene-index" data-scene-number="2"></span><div><p class="ug-kicker">A target to practice toward</p><h3 id="ug-edit-title">Hear yourself without the ums</h3></div><span class="ug-scene-tag">The goblin edit</span></div>
+          <div id="ug-edit-content"></div>
+        </article>
+
+        <article class="ug-scene-card ug-try-card" id="ug-scene-try" aria-labelledby="ug-try-title">
+          <div class="ug-scene-heading"><span class="ug-scene-index" data-scene-number="3"></span><div><p class="ug-kicker">Same question. Your own voice.</p><h3 id="ug-try-title">Now you try</h3></div><span class="ug-scene-tag ug-scene-tag-lime">Your practice space</span></div>
+          <div id="ug-try-content"></div>
+        </article>
+
+        <section class="ug-silence-check" aria-labelledby="ug-silence-title">
+          <div class="ug-silence-copy"><p class="ug-kicker">A useful edge case</p><h3 id="ug-silence-title">What if I just stay silent?</h3><p>The goblin can tell the difference between a pause and an answer.</p></div>
+          <button class="ug-button ug-button-blocked" type="button" data-action="silence">What if I just stay silent? <span aria-hidden="true">↗</span></button>
+          <div class="ug-silence-result" id="ug-silence-result" hidden aria-live="polite"></div>
         </section>
-        <div class="result-grid"><div class="result-creature"><div class="result-goblin-wrap" id="result-goblin-wrap"><um-goblin id="result-goblin" rate="14.5" aria-hidden="true"></um-goblin><span class="creature-caption" id="creature-caption">THE GOBLIN IS GROWING</span></div><div class="stats"><div class="stat"><span>FILLERS</span><b id="stat-fillers">—</b><small>little snacks</small></div><div class="stat"><span>PER 100 WORDS</span><b id="stat-rate">—</b><small>filler rate</small></div><div class="stat"><span>ANSWER COVERED</span><b id="stat-covered">—</b><small>the anti-cheat check</small></div></div><div class="player hidden" id="goblin-player"><button id="play-goblin" aria-label="Play goblin voice">▶</button><div><b>The goblin ate your ums</b><span>Hear your fillers, goblin-ified</span></div><audio id="goblin-audio"></audio></div><p class="audio-missing hidden" id="audio-missing">Your fillers were counted; this lair has no ffmpeg, so the goblin voice stayed quiet.</p></div>
-          <div class="result-details"><article class="detail-card"><div class="detail-title"><h3>Your answer</h3><span id="word-count">—</span></div><div id="transcript" class="transcript"></div></article><article class="detail-card coach-card"><div class="detail-title"><h3>Goblin coach</h3><span class="coach-spark">✳</span></div><div class="habit-label">THE HABIT</div><p id="habit" class="habit"></p><div class="drill-label">YOUR NEXT DRILL</div><p id="drill" class="drill"></p><div id="goblin-line" class="goblin-line"></div><div id="covered-basis" class="covered-basis"></div><div id="fallback-note" class="fallback-note hidden">Rule-based coach · connector unavailable</div></article><button id="next-take" class="button primary next-take">Next take <span>→</span></button></div>
-        </div>
       </section>
-      <div id="toast" class="toast" role="status"></div>
     </main>
-    <footer><span>BUILT FOR CLEARER THOUGHTS &amp; FEWER FILLERS</span><span>THE GOBLIN IS ALWAYS LISTENING <i>✳</i></span></footer>
-  </div>
-  <script type="module" src="/app.js"></script>
-</body></html>
+
+    <aside class="ug-judge-drawer" id="ug-judge-drawer" role="dialog" aria-modal="true" aria-labelledby="ug-judge-title" hidden>
+      <div class="ug-drawer-backdrop" data-action="close-judge" tabindex="-1" aria-hidden="true"></div>
+      <div class="ug-drawer-panel">
+        <div class="ug-drawer-header"><div><p class="ug-eyebrow"><span class="ug-eyebrow-dot"></span>Proof &amp; plumbing</p><h2 id="ug-judge-title">Okay, judge away.</h2></div><button class="ug-icon-button" type="button" data-action="close-judge" aria-label="Close judge panel">×</button></div>
+        <div class="ug-judge-content" id="ug-judge-content"></div>
+      </div>
+    </aside>
+
+    <footer class="ug-footer">
+      <a class="ug-brand ug-footer-brand" href="#top"><span class="ug-brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" role="presentation"><path d="M5 12 2 5l9 3a15 15 0 0 1 10 0l9-3-3 8v6a11 11 0 0 1-22 0z"/><circle cx="12" cy="17" r="1.5"/><circle cx="21" cy="17" r="1.5"/><path d="M12 22q4 3 9 0"/></svg></span><span class="ug-brand-word">um goblin<span class="ug-brand-period">.</span></span></a>
+      <p>Runs on a Fly.io Sprite <span aria-hidden="true">·</span> Deepgram + OpenRouter via Sprites connectors</p>
+      <a class="ug-back-top" href="#top">Back to top ↑</a>
+    </footer>
+    <div class="ug-toast" id="ug-toast" role="status" aria-live="polite"></div>
+  </body>
+</html>
