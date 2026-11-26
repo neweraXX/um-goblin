@@ -1,0 +1,34 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { mkdtemp, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { once } from 'node:events';
+
+test('public sample replay and cached clean bypass quota; uploads stay private and limited', async (t) => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'ug-server-test-'));
+  const child = spawn(process.execPath, ['server.mjs'], { env: { ...process.env, MOCK: '1', PORT: '18089', DATA_DIR: dir, RATE_PER_IP: '2' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  t.after(async () => { child.kill(); await once(child, 'exit'); await rm(dir, { recursive: true, force: true }); });
+  await Promise.race([once(child.stdout, 'data'), once(child, 'exit').then(() => { throw new Error('server failed to start'); })]);
+  const base = 'http://127.0.0.1:18089';
+  const post = (url, headers = {}, body) => fetch(base + url, { method: 'POST', headers, body });
+  const samples = await Promise.all([post('/api/analyze?sample=spacewalk'), post('/api/analyze?sample=spacewalk')]);
+  const [first, second] = await Promise.all(samples.map((r) => r.json()));
+  assert.equal(first.id, second.id);
+  assert.equal(first.sessionId, undefined);
+  const cleans = await Promise.all([post(`/api/attempts/${first.id}/clean`), post(`/api/attempts/${first.id}/clean`)]);
+  assert.deepEqual(cleans.map((r) => r.status), [200, 200]);
+  const upload = await post('/api/analyze', { 'content-type': 'audio/ogg' }, Buffer.from('mock ogg'));
+  const cookie = upload.headers.get('set-cookie').split(';')[0];
+  const attempt = await upload.json();
+  assert.equal(upload.status, 200);
+  assert.match(attempt.audioUrl, /answer\.ogg$/);
+  assert.equal((await fetch(base + attempt.audioUrl)).status, 404);
+  assert.equal((await fetch(base + attempt.audioUrl, { headers: { cookie } })).headers.get('content-type'), 'audio/ogg');
+  assert.equal((await post(`/api/attempts/${attempt.id}/clean`, { cookie })).status, 200);
+  assert.equal((await post(`/api/attempts/${attempt.id}/clean`, { cookie })).status, 200);
+  assert.equal((await post('/api/analyze', { 'content-type': 'audio/wav' }, Buffer.from('mock'))).status, 429);
+  assert.equal((await post('/api/analyze?sample=spacewalk')).status, 200);
+  assert.equal((await post(`/api/attempts/${first.id}/clean`)).status, 200);
+});

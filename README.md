@@ -2,53 +2,73 @@
 
 > Every “um” you say feeds a goblin. Practice until it starves.
 
-Um Goblin turns spoken filler words into a tiny practice loop. Watch a real NASA public-domain answer, see its nine “um” and “uh” fillers highlighted, then record or upload your own answer and try the drill.
+A personal speaking agent that lives on a [Fly.io Sprite](https://fly.io/sprites/). Record or upload an answer: the goblin finds every “um” and “uh”, eats them one by one (you hear each one), burps them back as a goblin voice made of *your* fillers, then hands you the same answer without them — re-checked by a second listen, with any changed word shown to you.
+
+Built for **Fly.io Hacksgiving 2026**.
+
+## Try it
+
+1. **Watch the story** — a real NASA answer (public domain): 9 fillers, eaten one by one, then the original vs. the goblin edit on the same 12-second stretch.
+2. **Try it yourself** — click *Record*, or click / drag-and-drop an audio file (wav, mp3, m4a · ≤ 8 MB · ≤ 90 s). The goblin starts on your take automatically.
+3. **I'm a judge** — connector gate test (a bogus connection → real `404` from the Sprites gateway), how the checker works (pass-by-pass re-check), and measured numbers.
 
 ## How it works
 
 ```text
-Microphone or sample clip
-        ↓
-Um Goblin server ── Deepgram through the Sprites connector gateway
-        ↓                                ↓
-Transcript + filler timestamps       Coach through OpenRouter connector
-        ↓
-ffmpeg clips the speaker’s own fillers → pitch-shifted goblin voice
-        ↓
-Goblin edit removes filler spans → Deepgram re-checks up to three passes
-        ↓
-Attempt files and history on the Sprite disk
+Browser (record / upload)
+   │
+   ▼
+Node server on a Sprite (no npm deps)
+   ├─► Deepgram  ──via Sprites connector gateway──►  transcript + word timestamps (filler_words=true)
+   ├─► ffmpeg: cut the speaker's own fillers → pitch-shift + echo → goblin burp (mp3)
+   ├─► OpenRouter ──via Sprites connector gateway──►  coach: habit + one drill (validated JSON, rule fallback)
+   └─► Goblin edit: cut filler spans → Deepgram listens again (≤3 passes)
+          → word-level alignment (Levenshtein) of content words before/after → changed words reported
+   attempts, audio and results persist on the Sprite disk
 ```
 
-The Deepgram and OpenRouter connector gateways inject credentials. Keys do not live in this app. The app keeps each attempt, transcript response, coach result, and available audio under `~/goblin-data/` on the Sprite disk.
+**Why a Sprite and connectors:** the provider keys never touch the app or the Sprite — the Sprites connector gateway injects them (`https://api.sprites.dev/v1/gateway/<provider>/<connection-id>/…`). Turn the Deepgram connector off and there is no transcript, no timestamps, no goblin (the judge panel demonstrates this with a live request). The Sprite sleeps when idle, wakes on HTTP, and keeps every take on disk.
+
+## Measured (real runs, not mock)
+
+| What | Result |
+|---|---|
+| um/uh detected on the NASA sample | 9 |
+| Goblin edit on the NASA sample (Deepgram re-check per pass) | 9 → 2 → 0 fillers; 61 of 62 content words kept (1 changed word is shown) |
+| Synthetic TTS voices (6 voices × 2 tries) | fillers mostly **not** detected — why the demo uses a real recording |
+| 11 real podcast clips (NASA HWHAP + Hacker Public Radio): words lost by the cutter | 2 / 11 |
+| Planted missing word caught by the checker | 8 / 11 (misses short words like “So”, “I”) |
+
+Limits: English “um”/“uh” only (Deepgram does not tag “hmm”/“erm”). The edit shows a target; it is not proof that you improved. Free takes are not checked for topic.
 
 ## Run locally
 
-Requires Node.js 22 or newer. No npm packages are needed.
+Node.js ≥ 22. No npm packages.
 
 ```sh
-MOCK=1 PORT=8080 node server.mjs
+MOCK=1 PORT=8080 node server.mjs      # offline: fixture transcript, deterministic coach
+node --test                           # unit tests
 ```
 
-Open `http://localhost:8080`. Mock mode uses `fixtures/spacewalk.deepgram.json` and a deterministic coach without network access. If ffmpeg is installed, it creates the goblin audio; without ffmpeg, filler counts and coaching still work and the audio control is omitted.
-
-For live analysis, run with `MOCK=0` and configure the Sprite gateway URL environment variables `DG_BASE` and `OR_BASE` if using non-default connectors. `OR_MODEL` selects the OpenRouter model. `PORT` selects the HTTP port and `DATA_DIR` can override the lair-history directory.
+Live mode (`MOCK=0`) expects to run on a Sprite with Deepgram and OpenRouter connectors whose policy allows that Sprite. Env: `DG_BASE`, `OR_BASE` (gateway URLs incl. connection id), `OR_MODEL`, `PORT`, `DATA_DIR`, `RATE_PER_IP`, `RATE_PER_DAY`.
 
 ## Deploy on a Sprite
 
-Create a Sprite for this repository, then start the server as its persistent service with HTTP port 8080 exposed:
+Copy the repo onto the Sprite, install ffmpeg, then register the server as a service (inside the Sprite):
 
 ```sh
-sprite service create --name um-goblin --cmd "node server.mjs" --http-port 8080
+sprite-env services create goblin --cmd "$(command -v node)" --args server.mjs --dir "$PWD" --http-port 8080
 ```
 
-Set `PORT=8080`, `MOCK=0`, and optional `DG_BASE`, `OR_BASE`, and `OR_MODEL` in the Sprite service environment. Configure the Deepgram and OpenRouter Sprites connectors for the gateway URLs. The app uses the connectors as its credential boundary; do not put provider keys in the Sprite environment. A Sprite wakes on HTTP requests, and its disk keeps lair history across sleep and wake.
+## Quality checks
 
-## Limits and privacy
+- `scripts/e2e-live.cjs` — Playwright end-to-end run against the live app on the Sprite (real connectors): every user path in `qa/QA-CHECKLIST.md`, including races (upload during the story, two uploads < 1 s apart, reset mid-upload), drag-and-drop, single-audio rule, A/B length. Last run: 51/51.
+- `qa/` — the checklist, an independent code review, an independent UX review from live screenshots, and E2E notes.
 
-- Today’s filler counter recognizes English “um” and “uh”; it does not count “hmm” or “erm”.
-- The spacewalk detection count is a real Deepgram result. Synthetic TTS voices mostly did not trigger filler detection, which is why the demo uses a real recording.
-- Goblin edit results are re-checked by Deepgram on every live run. Mock mode shows simulated counts and does not generate edited audio. An edit is not a second human attempt or proof of improvement.
-- The coach’s coverage judgment uses the full transcript. Fallback coverage is labeled as an estimate; silence and answers with fewer than 15 non-filler words are always rejected as wins.
-- Each browser gets a random HttpOnly session cookie. `/api/history` returns only that session’s attempts plus a global count; sample story audio is public. Recordings and generated audio are stored on your Sprite disk. Audio sent for live analysis or Goblin edit goes through the configured Deepgram connector; transcript context goes through OpenRouter.
-- `ffmpeg` is optional. Without it, goblin audio playback is skipped without affecting analysis.
+## Privacy
+
+Each browser gets a random HttpOnly session cookie; `/api/history` returns only that session's takes. Recordings and generated audio stay on the Sprite disk. Audio goes to Deepgram and transcript context to OpenRouter through the connectors. Simple per-IP and daily rate limits protect the credits.
+
+## Credits
+
+UI first drafted with v0 (committed unmodified in its own commit), then wired to the live pipeline. Sample audio: NASA, public domain. MIT license.

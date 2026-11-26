@@ -7,12 +7,14 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { assessAnswer, buildFfmpegFilter, countFillers, extractWords, perHundred, transcriptFrom } from './lib/analysis.mjs';
-import { buildCleanPlan } from './lib/clean.mjs';
+import { alignChangedWords, buildCleanPlan, buildCleanSummary } from './lib/clean.mjs';
 import { fallbackCoach, stubCoach, validateCoach } from './lib/coach.mjs';
 import { buildHabitCandidates, fillerContexts } from './lib/habits.mjs';
 import { loadManifest } from './lib/manifest.mjs';
 import { createRateLimiter, requestIp } from './lib/rate-limit.mjs';
 import { filterSessionAttempts, mayReadAttemptAudio } from './lib/privacy.mjs';
+import audioTypes from './public/take.js';
+import { normalizeWord } from './lib/normalize.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const DATA = process.env.DATA_DIR || path.join(os.homedir(), 'goblin-data');
@@ -20,9 +22,17 @@ const PORT = Number(process.env.PORT || 8080);
 const MOCK = process.env.MOCK === '1';
 const MAX_BYTES = 8 * 1024 * 1024;
 const samples = await loadManifest(path.join(ROOT, 'samples/manifest.json'));
-const rateLimiter = createRateLimiter({ perIp: 20, globalPerDay: 300 });
+const rateLimiter = createRateLimiter({ perIp: Number(process.env.RATE_PER_IP || 20), globalPerDay: Number(process.env.RATE_PER_DAY || 300) });
 const processStartedAt = new Date().toISOString();
 const cleanRunning = new Set();
+const sampleRunning = new Map();
+const cleanPending = new Map();
+const publicResult = ({ sessionId: _session, publicSample: _public, ...result }) => result;
+function allowRequest(req, res) {
+  const limit = rateLimiter.consume(requestIp(req));
+  if (!limit.allowed) json(res, 429, { error: limit.message });
+  return limit.allowed;
+}
 
 const json = (res, status, value) => {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
@@ -65,7 +75,7 @@ async function visitSnapshot(sessionId, markVisit) {
   return {
     processStartedAt,
     lastRequestAt,
-    wokeSecondsAgo: Math.max(0, Math.floor((now.getTime() - Date.parse(processStartedAt)) / 1000)),
+    serverUptimeSeconds: Math.max(0, Math.floor((now.getTime() - Date.parse(processStartedAt)) / 1000)),
     previousVisitSecondsAgo: lastRequestAt ? Math.max(0, Math.floor((now.getTime() - Date.parse(lastRequestAt)) / 1000)) : null,
   };
 }
@@ -82,7 +92,12 @@ async function runFfmpeg(input, fillerWords, output) {
 }
 
 async function deepgram(audio, sampleId, contentType) {
-  if (MOCK) return JSON.parse(await readFile(path.join(ROOT, 'fixtures', `${sampleId || 'spacewalk'}.deepgram.json`), 'utf8'));
+  if (MOCK) {
+    if (!sampleId && contentType?.includes('wav') && audio.subarray(0, 4).toString() === 'RIFF' && audio.subarray(44).every((sample) => sample === 0)) {
+      return { metadata: { duration: 3 }, results: { channels: [{ alternatives: [{ transcript: '', words: [] }] }] } };
+    }
+    return JSON.parse(await readFile(path.join(ROOT, 'fixtures', `${sampleId || 'spacewalk'}.deepgram.json`), 'utf8'));
+  }
   const base = process.env.DG_BASE || 'https://api.sprites.dev/v1/gateway/deepgram/eNpa5SKIon_1VgCUfzbNHQ';
   const url = new URL(`${base.replace(/\/$/, '')}/v1/listen?model=nova-3&filler_words=true&punctuate=true`);
   const response = await fetch(url, { method: 'POST', headers: { 'content-type': contentType || 'audio/webm' }, body: audio, signal: AbortSignal.timeout(120000) });
@@ -119,6 +134,13 @@ async function handleAnalyze(req, res, url, sessionId) {
   const sampleId = url.searchParams.get('sample');
   const sample = samples.find((item) => item.id === sampleId);
   if (sampleId && !sample) return json(res, 404, { error: 'Sample not found.' });
+  if (sample) {
+    const cached = (await history()).find((attempt) => attempt.publicSample && attempt.sampleId === sampleId && (attempt.coach === 'mock') === MOCK);
+    if (cached) return json(res, 200, publicResult(cached));
+  } else {
+    if (!/^audio\//i.test(req.headers['content-type'] || '')) return json(res, 415, { error: 'Choose an audio file to continue.' });
+    if (!allowRequest(req, res)) return;
+  }
   let audio;
   if (sampleId) audio = await readFile(path.resolve(ROOT, 'samples', sample.file));
   else {
@@ -129,9 +151,10 @@ async function handleAnalyze(req, res, url, sessionId) {
     if (!audio.length) return json(res, 400, { error: 'Choose a clip or record an answer first.' });
   }
   const question = url.searchParams.get('question') || sample?.question || 'Tell me about a difficult situation at work.';
+  const contentType = sample ? audioTypes.audioMime(sample.file) : req.headers['content-type'] || '';
   try {
     const deepgramStartedAt = performance.now();
-    const dg = await deepgram(audio, sampleId, req.headers['content-type']);
+    const dg = await deepgram(audio, sampleId, contentType);
     const deepgramMs = Math.round(performance.now() - deepgramStartedAt);
     const duration = Number(dg?.metadata?.duration);
     if (Number.isFinite(duration) && duration > 95) return json(res, 413, { error: 'This take is over 95 seconds. Trim it and try again.' });
@@ -149,8 +172,7 @@ async function handleAnalyze(req, res, url, sessionId) {
     const attemptId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const dir = path.join(DATA, attemptId);
     await mkdir(dir, { recursive: true });
-    const contentType = req.headers['content-type'] || '';
-    const ext = sample?.file ? path.extname(sample.file) : contentType.includes('wav') ? '.wav' : contentType.includes('m4a') || contentType.includes('mp4') ? '.m4a' : contentType.includes('mpeg') || contentType.includes('mp3') ? '.mp3' : '.webm';
+    const ext = sample?.file ? path.extname(sample.file) : audioTypes.audioExtension(contentType);
     const audioName = `answer${ext}`;
     await writeFile(path.join(dir, audioName), audio);
     await writeFile(path.join(dir, 'deepgram.json'), JSON.stringify(dg));
@@ -185,8 +207,27 @@ async function handleClean(req, res, attemptId, sessionId) {
   let attempt;
   try { attempt = JSON.parse(await readFile(path.join(dir, 'attempt.json'), 'utf8')); } catch { return json(res, 404, { error: 'Take not found.' }); }
   if (attempt.sessionId !== sessionId && !attempt.publicSample) return json(res, 404, { error: 'Take not found.' });
-  if (attempt.clean) return json(res, 200, attempt.clean);
+  if (attempt.clean) {
+    if (attempt.clean.contentWordsBefore == null || attempt.clean.contentWordsAfter == null || attempt.clean.removedSeconds == null || !Array.isArray(attempt.clean.changedWords)) {
+      const originalWords = attempt.words || attempt.transcript || [];
+      const finalPass = attempt.clean.passes?.at(-1);
+      const cachedAfterWords = (attempt.clean.transcriptAfter || '').split(/\s+/).filter(Boolean).map((text) => {
+        const word = normalizeWord(text);
+        return { word, text, filler: word === 'um' || word === 'uh' };
+      });
+      Object.assign(attempt.clean, buildCleanSummary(
+        originalWords,
+        typeof attempt.clean.transcriptAfter === 'string' ? cachedAfterWords : originalWords,
+        attempt.durationSeconds || attempt.clean.passes?.[0]?.duration || 0,
+        finalPass?.duration || attempt.durationSeconds || 0,
+      ));
+      if (!Array.isArray(attempt.clean.changedWords)) attempt.clean.changedWords = alignChangedWords(originalWords, typeof attempt.clean.transcriptAfter === 'string' ? cachedAfterWords : originalWords);
+      await writeFile(path.join(dir, 'attempt.json'), JSON.stringify(attempt, null, 2));
+    }
+    return json(res, 200, attempt.clean);
+  }
   if (cleanRunning.has(attemptId)) return json(res, 409, { error: 'The goblin is already editing this take. Please try again in a moment.' });
+  if (!attempt.publicSample && !allowRequest(req, res)) return;
   cleanRunning.add(attemptId);
 
   try {
@@ -242,6 +283,8 @@ async function handleClean(req, res, attemptId, sessionId) {
 
     const cleanResult = {
       attemptId, passes, cleanAudioUrl, transcriptAfter: transcriptAfterText(finalWords),
+      ...buildCleanSummary(words, finalWords, duration, passes.at(-1)?.duration ?? duration),
+      changedWords: alignChangedWords(words, finalWords),
       mock: MOCK, label: MOCK ? 'MOCK · simulated clean statistics; no edited audio was generated' : 'LIVE · each pass was re-checked by Deepgram',
     };
     attempt.clean = cleanResult;
@@ -254,10 +297,6 @@ async function handleClean(req, res, attemptId, sessionId) {
 async function handle(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const sessionId = getSessionId(req, res);
-  if (req.method === 'POST' && (['/api/analyze', '/api/gate-test'].includes(url.pathname) || /^\/api\/attempts\/[\w-]+\/clean$/.test(url.pathname))) {
-    const limit = rateLimiter.consume(requestIp(req));
-    if (!limit.allowed) return json(res, 429, { error: limit.message });
-  }
   if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, { ok: true, mock: MOCK });
   if (req.method === 'GET' && url.pathname === '/api/samples') return json(res, 200, samples);
   if (req.method === 'GET' && url.pathname === '/api/history') {
@@ -266,10 +305,25 @@ async function handle(req, res) {
     const visit = await visitSnapshot(sessionId, url.searchParams.get('visit') === '1');
     return json(res, 200, { attempts: mine, count: mine.length, globalCount: all.length, dataPath: DATA, ...visit });
   }
-  if (req.method === 'POST' && url.pathname === '/api/analyze') return handleAnalyze(req, res, url, sessionId);
+  if (req.method === 'POST' && url.pathname === '/api/analyze') {
+    const sampleId = url.searchParams.get('sample');
+    if (!sampleId) return handleAnalyze(req, res, url, sessionId);
+    // Serialize the first public sample creation as well as subsequent cache reads.
+    if (sampleRunning.has(sampleId)) await sampleRunning.get(sampleId);
+    const pending = handleAnalyze(req, res, url, sessionId);
+    sampleRunning.set(sampleId, pending);
+    try { return await pending; } finally { if (sampleRunning.get(sampleId) === pending) sampleRunning.delete(sampleId); }
+  }
   const cleanMatch = url.pathname.match(/^\/api\/attempts\/([\w-]+)\/clean$/);
-  if (req.method === 'POST' && cleanMatch) return handleClean(req, res, cleanMatch[1], sessionId);
+  if (req.method === 'POST' && cleanMatch) {
+    const id = cleanMatch[1];
+    if (cleanPending.has(id)) await cleanPending.get(id);
+    const pending = handleClean(req, res, id, sessionId);
+    cleanPending.set(id, pending);
+    try { return await pending; } finally { if (cleanPending.get(id) === pending) cleanPending.delete(id); }
+  }
   if (req.method === 'POST' && url.pathname === '/api/gate-test') {
+    if (!allowRequest(req, res)) return;
     if (MOCK) return json(res, 200, { ok: false, error: 'Mock mode: the deliberately bogus connection was not sent to the network. Set MOCK=0 on a Sprite to see the real gateway rejection.' });
     try {
       const base = (process.env.DG_BASE || 'https://api.sprites.dev/v1/gateway/deepgram/eNpa5SKIon_1VgCUfzbNHQ').replace(/\/$/, '').replace(/\/[^/]+$/, '');
@@ -285,7 +339,7 @@ async function handle(req, res) {
       if (!mayReadAttemptAudio(attempt, sessionId, audioMatch[2])) return json(res, 404, { error: 'Audio not found.' });
       const file = path.join(DATA, audioMatch[1], audioMatch[2]);
       const info = await stat(file);
-      const contentTypes = { '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.webm': 'audio/webm', '.m4a': 'audio/mp4' };
+      const contentTypes = { '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.webm': 'audio/webm', '.m4a': 'audio/mp4', '.ogg': 'audio/ogg', '.flac': 'audio/flac', '.aac': 'audio/aac' };
       res.writeHead(200, { 'content-length': info.size, 'content-type': contentTypes[path.extname(audioMatch[2]).toLowerCase()] });
       return createReadStream(file).pipe(res);
     } catch { return json(res, 404, { error: 'Audio not found.' }); }
@@ -294,7 +348,7 @@ async function handle(req, res) {
     if (url.pathname.startsWith('/samples/')) {
       const name = url.pathname.slice('/samples/'.length);
       const extension = path.extname(name).toLowerCase();
-      const contentTypes = { '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.webm': 'audio/webm', '.m4a': 'audio/mp4' };
+      const contentTypes = { '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.webm': 'audio/webm', '.m4a': 'audio/mp4', '.ogg': 'audio/ogg', '.flac': 'audio/flac', '.aac': 'audio/aac' };
       if (!/^[\w.-]+$/.test(name) || name.includes('..')) return json(res, 403, { error: 'Forbidden' });
       if (!contentTypes[extension]) return json(res, 404, { error: 'Sample audio not found.' });
       try { const file = await readFile(path.resolve(ROOT, 'samples', name)); res.writeHead(200, { 'content-type': contentTypes[extension] }); return res.end(file); } catch { return json(res, 404, { error: 'Not found.' }); }
@@ -306,7 +360,7 @@ async function handle(req, res) {
     const file = path.resolve(ROOT, 'public', relative);
     if (!file.startsWith(path.resolve(ROOT, 'public') + path.sep) && file !== path.resolve(ROOT, 'public', 'index.html')) return json(res, 403, { error: 'Forbidden' });
     const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
-    try { const body = await readFile(file); res.writeHead(200, { 'content-type': types[path.extname(file)] || 'application/octet-stream' }); return res.end(body); } catch { return json(res, 404, { error: 'Not found.' }); }
+    try { const body = await readFile(file); res.writeHead(200, { 'content-type': types[path.extname(file)] || 'application/octet-stream', 'cache-control': 'no-cache' }); return res.end(body); } catch { return json(res, 404, { error: 'Not found.' }); }
   }
   return json(res, 404, { error: 'Not found.' });
 }

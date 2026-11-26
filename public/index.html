@@ -7,6 +7,7 @@
     <meta name="description" content="A tiny speaking practice with a big appetite. Feed the goblin your filler words, then practice until it starves." />
     <title>Um Goblin — speaking practice with a big appetite</title>
     <link rel="stylesheet" href="./styles.css" />
+    <script defer src="./take.js"></script>
     <script defer src="./app.js"></script>
   </head>
   <body class="ug-body">
@@ -64,10 +65,15 @@
             <h2 id="ug-story-title">A little less “um.” A lot more you.</h2>
           </div>
           <div class="ug-story-controls">
-            <button class="ug-button ug-button-primary ug-story-play" type="button" data-action="play-story"><span class="ug-play-icon" aria-hidden="true">▶</span> Play the story</button>
             <span class="ug-story-time" id="ug-story-time"></span>
           </div>
         </div>
+        <div class="ug-story-guide" id="ug-story-guide" hidden aria-live="polite">
+          <div class="ug-story-guide-top"><strong id="ug-story-progress">Scene 1/4</strong><div class="ug-story-progress-track" role="progressbar" aria-label="Story progress" aria-valuemin="1" aria-valuemax="4" aria-valuenow="1"><span id="ug-story-progress-fill"></span></div><div class="ug-story-guide-actions"><button class="ug-story-control" type="button" data-action="pause-story" id="ug-story-pause">Pause</button><button class="ug-story-control" type="button" data-action="skip-story">Skip story</button></div></div>
+          <p id="ug-story-caption">Listen: a real astronaut answer. Every glowing mark is an “um.”</p>
+          <div class="ug-story-guide-bottom"><button class="ug-story-control ug-story-control-next" type="button" data-action="next-story" id="ug-story-next">Next ›</button></div>
+        </div>
+        <div class="ug-story-end-actions" id="ug-story-end-actions" hidden><button class="ug-story-control" type="button" data-action="replay-story">↺ Watch again</button><button class="ug-story-control ug-story-control-next" type="button" data-action="try-now">🎙 Try it with your voice</button></div>
         <nav class="ug-scene-nav" aria-label="Story scenes">
           <a href="#ug-scene-take"><span class="ug-scene-nav-number" data-scene-number="0"></span><span>The answer</span></a>
           <a href="#ug-scene-coach"><span class="ug-scene-nav-number" data-scene-number="1"></span><span>The coach</span></a>
@@ -88,10 +94,11 @@
         <article class="ug-scene-card" id="ug-scene-edit" aria-labelledby="ug-edit-title">
           <div class="ug-scene-heading"><span class="ug-scene-index" data-scene-number="2"></span><div><p class="ug-kicker">A target to practice toward</p><h3 id="ug-edit-title">Hear yourself without the ums</h3></div><span class="ug-scene-tag">The goblin edit</span></div>
           <div id="ug-edit-content"></div>
+          <div class="ug-story-comparison" id="ug-story-comparison" hidden><strong id="ug-story-word-counts"></strong><p id="ug-story-changed-words"></p></div>
         </article>
 
         <article class="ug-scene-card ug-try-card" id="ug-scene-try" aria-labelledby="ug-try-title">
-          <div class="ug-scene-heading"><span class="ug-scene-index" data-scene-number="3"></span><div><p class="ug-kicker">Same question. Your own voice.</p><h3 id="ug-try-title">Now you try</h3></div><span class="ug-scene-tag ug-scene-tag-lime">Your practice space</span></div>
+          <div class="ug-scene-heading"><span class="ug-scene-index" data-scene-number="3"></span><div><p class="ug-kicker">Your own words. Your own voice.</p><h3 id="ug-try-title">Now you try</h3></div><span class="ug-scene-tag ug-scene-tag-lime">Your practice space</span></div>
           <div id="ug-try-content"></div>
         </article>
 
@@ -102,6 +109,19 @@
         </section>
       </section>
     </main>
+
+    <div class="ug-eating-spotlight" id="ug-eating-spotlight" hidden aria-hidden="true">
+      <div class="ug-spotlight-shade"></div>
+      <div class="ug-spotlight-content">
+        <p class="ug-spotlight-kicker">THE GOBLIN’S BIG MOMENT</p>
+        <div class="ug-spotlight-goblin" id="ug-spotlight-goblin"></div>
+        <p class="ug-spotlight-caption" id="ug-spotlight-caption"></p>
+        <div class="ug-spotlight-transcript" id="ug-spotlight-transcript"></div>
+        <div class="ug-spotlight-controls"><button class="ug-story-control" type="button" data-action="pause-story">Pause</button><button class="ug-story-control" type="button" data-action="skip-story">Skip story</button><button class="ug-story-control" type="button" data-action="reset">Reset</button>
+        <button class="ug-story-control ug-spotlight-next" type="button" data-action="next-story">Next ›</button>
+        </div>
+      </div>
+    </div>
 
     <aside class="ug-judge-drawer" id="ug-judge-drawer" role="dialog" aria-modal="true" aria-labelledby="ug-judge-title" hidden>
       <div class="ug-drawer-backdrop" data-action="close-judge" tabindex="-1" aria-hidden="true"></div>

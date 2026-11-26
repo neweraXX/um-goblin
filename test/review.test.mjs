@@ -5,7 +5,7 @@ import { fallbackCoach, validateCoach } from '../lib/coach.mjs';
 import { createRateLimiter, requestIp } from '../lib/rate-limit.mjs';
 import { filterSessionAttempts, mayReadAttemptAudio } from '../lib/privacy.mjs';
 import { findStoryPair, safeComparison } from '../public/story.mjs';
-import { buildCleanPlan } from '../lib/clean.mjs';
+import { alignChangedWords, buildCleanPlan, buildCleanSummary } from '../lib/clean.mjs';
 
 const word = (index, text, start = index) => ({ index, word: text.toLowerCase().replace(/[^a-z0-9]/g, ''), text, start, filler: ['um', 'uh'].includes(text.toLowerCase().replace(/[^a-z]/g, '')) });
 
@@ -89,6 +89,43 @@ test('clean plan keeps speech around each filler with a 30ms context and builds 
   assert.match(plan.filtergraph, /atrim=0\.000:0\.570/);
   assert.match(plan.filtergraph, /afade=t=in/);
   assert.match(plan.filtergraph, /concat=n=2/);
+});
+
+test('clean summary reports retained content words and actual duration removed', () => {
+  const before = [
+    { word: 'hello', filler: false }, { word: 'um', filler: true },
+    { word: 'there', filler: false }, { word: 'uh', filler: true },
+  ];
+  const after = [{ word: 'hello', filler: false }, { word: 'there', filler: false }];
+  assert.deepEqual(buildCleanSummary(before, after, 25.933, 23.733), {
+    contentWordsBefore: 2,
+    contentWordsAfter: 2,
+    removedSeconds: 2.2,
+  });
+});
+
+test('clean word alignment reports substitutions, deletions, insertions, and skips fillers', () => {
+  const before = [
+    { word: 'we', text: 'We', start: 0, filler: false },
+    { word: 'um', text: 'um,', start: 0.2, filler: true },
+    { word: 'right', text: 'right', start: 0.5, filler: false },
+    { word: 'lost', text: 'lost.', start: 0.8, filler: false },
+  ];
+  const after = [
+    { word: 'we', text: 'We', start: 0, filler: false },
+    { word: 'bright', text: 'bright', start: 0.4, filler: false },
+    { word: 'found', text: 'found.', start: 0.7, filler: false },
+  ];
+  assert.deepEqual(alignChangedWords(before, after), [
+    { before: 'right', after: 'bright', time: 0.5 },
+    { before: 'lost.', after: 'found.', time: 0.8 },
+  ]);
+  assert.deepEqual(alignChangedWords(before.slice(0, 3), before.slice(0, 2)), [
+    { before: 'right', after: null, time: 0.5 },
+  ]);
+  assert.deepEqual(alignChangedWords(before.slice(0, 1), [before[0], { word: 'again', text: 'again', start: 0.6, filler: false }]), [
+    { before: null, after: 'again', time: 0.6 },
+  ]);
 });
 
 test('rate limiter caps each IP hourly and all IPs daily, then resets windows', () => {
