@@ -1,0 +1,23 @@
+// Phương án (b): cắt bỏ um/uh khỏi clip người thật theo timestamp Deepgram (tối đa 3 lượt), đo lại sau mỗi lượt.
+import fs from 'node:fs'; import { execFileSync } from 'node:child_process';
+const GW = 'https://api.sprites.dev/v1/gateway/deepgram/eNpa5SKIon_1VgCUfzbNHQ/v1/listen?model=nova-3&filler_words=true&punctuate=true';
+const F = ['um', 'uh'];
+const listen = async (p) => (await (await fetch(GW, { method: 'POST', headers: { 'Content-Type': 'audio/wav' }, body: fs.readFileSync(p) })).json());
+const stats = (J) => { const w = J.results.channels[0].alternatives[0].words; return { dur: +J.metadata.duration.toFixed(1), words: w.length, fillers: w.filter(x => F.includes(x.word)).length }; };
+function cut(J, IN, OUT) {
+  const w = J.results.channels[0].alternatives[0].words, f = w.filter(x => F.includes(x.word));
+  const keep = []; let t = 0;
+  for (const x of f) {
+    const i = w.indexOf(x), prev = w.slice(0, i).reverse().find(y => !F.includes(y.word)), next = w.slice(i + 1).find(y => !F.includes(y.word));
+    const a = Math.min(x.start - 0.02, prev ? Math.max(prev.end + 0.05, x.start - 0.25) : x.start);
+    const b = Math.max(x.end + 0.02, next ? Math.min(next.start - 0.05, x.end + 0.25) : x.end);
+    if (a > t) keep.push([t, a]); t = Math.max(t, b);
+  }
+  keep.push([t, J.metadata.duration]);
+  const fc = keep.map(([a, b], i) => `[0]atrim=${a.toFixed(3)}:${b.toFixed(3)},asetpts=PTS-STARTPTS,afade=t=in:d=0.01,afade=t=out:st=${Math.max(0, b - a - 0.015).toFixed(3)}:d=0.015[k${i}]`).join(';') + ';' + keep.map((_, i) => `[k${i}]`).join('') + `concat=n=${keep.length}:v=0:a=1[out]`;
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', IN, '-filter_complex', fc, '-map', '[out]', OUT]);
+}
+let src = process.env.HOME + '/um-goblin/samples/spacewalk.wav', J = await listen(src); const log = [{ pass: 0, ...stats(J) }];
+for (let p = 1; p <= 3 && stats(J).fillers; p++) { const out = `/tmp/clean${p}.wav`; cut(J, src, out); src = out; J = await listen(src); log.push({ pass: p, ...stats(J) }); }
+fs.copyFileSync(src, process.env.HOME + '/goblin/out/spacewalk-clean.wav');
+console.log(JSON.stringify(log)); console.log(J.results.channels[0].alternatives[0].transcript);
