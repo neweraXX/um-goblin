@@ -554,3 +554,12 @@ button { color: inherit; }
 .ug-dropzone-copy { display: flex; flex-direction: column; gap: .2rem; }
 .ug-dropzone-copy small { opacity: .7; font-size: .8rem; }
 @media (prefers-reduced-motion: reduce) { .ug-dropzone-active { transform: none; } }
+
+/* Short laptop screens (≤ 800 px high): the growing goblin must never cover the caption or transcript. */
+.ug-spotlight-goblin-art { transform-origin: center top; }
+.ug-spotlight-goblin { padding-bottom: 5vh; }
+@media (max-height: 820px) {
+  .ug-spotlight-goblin { min-height: 0; padding-bottom: 7vh; }
+  .ug-spotlight-goblin-art { width: min(430px, 78vw, 34vh); }
+  .ug-spotlight-transcript { max-height: 28vh; }
+}
