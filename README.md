@@ -6,6 +6,8 @@ A personal speaking agent that lives on a [Fly.io Sprite](https://fly.io/sprites
 
 Built for **Fly.io Hacksgiving 2026**.
 
+**Live demo:** https://goblin-lair-b6ul3.sprites.app (runs on a Sprite; it may take a second to wake up)
+
 ## Try it
 
 1. **Watch the story** — a real NASA answer (public domain): 9 fillers, eaten one by one, then the original vs. the goblin edit on the same 12-second stretch.
