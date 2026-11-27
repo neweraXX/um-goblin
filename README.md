@@ -2,7 +2,7 @@
 
 > Every “um” you say feeds a goblin. Practice until it starves.
 
-A personal speaking agent that lives on a [Fly.io Sprite](https://fly.io/sprites/). Record or upload an answer: the goblin finds every “um” and “uh”, eats them one by one (you hear each one), burps them back as a goblin voice made of *your* fillers, then hands you the same answer without them — re-checked by a second listen, with any changed word shown to you.
+A personal speaking agent that lives on a [Fly.io Sprite](https://fly.io/sprites/). Record or upload an answer: the goblin eats the “um”s and “uh”s that Deepgram detects, one by one (you hear each one), burps them back as a goblin voice made of *your* fillers, then hands you an edit without them. The edit is transcribed again by the same engine and the detected word differences are shown — it can miss some, so listen before you use an edit.
 
 Built for **Fly.io Hacksgiving 2026**.
 
@@ -12,7 +12,7 @@ Built for **Fly.io Hacksgiving 2026**.
 
 1. **Watch the story** — a real NASA answer (public domain): 9 fillers, eaten one by one, then the original vs. the goblin edit on the same 12-second stretch.
 2. **Try it yourself** — click *Record*, or click / drag-and-drop an audio file (wav, mp3, m4a · ≤ 8 MB · ≤ 90 s). The goblin starts on your take automatically.
-3. **I'm a judge** — connector gate test (a bogus connection → real `404` from the Sprites gateway), how the checker works (pass-by-pass re-check), and measured numbers.
+3. **I'm a judge** — connector gate test (a request through a non-existent connection ID → real `404` from the Sprites gateway; it shows the gateway is the only path to the key, it does not switch off the live connector), how the checker works (pass-by-pass re-check), and measured numbers.
 
 ## How it works
 
@@ -29,19 +29,19 @@ Node server on a Sprite (no npm deps)
    attempts, audio and results persist on the Sprite disk
 ```
 
-**Why a Sprite and connectors:** the provider keys never touch the app or the Sprite — the Sprites connector gateway injects them (`https://api.sprites.dev/v1/gateway/<provider>/<connection-id>/…`). Turn the Deepgram connector off and there is no transcript, no timestamps, no goblin (the judge panel demonstrates this with a live request). The Sprite sleeps when idle, wakes on HTTP, and keeps every take on disk.
+**Why a Sprite and connectors:** the provider keys never touch the app or the Sprite — the Sprites connector gateway injects them (`https://api.sprites.dev/v1/gateway/<provider>/<connection-id>/…`). Without a valid Deepgram connection there is no transcript, no timestamps, no goblin (the judge panel sends a live request through a bogus connection ID and shows the gateway's refusal). The Sprite sleeps when idle, wakes on HTTP, and keeps every take on disk.
 
 ## Measured (real runs, not mock)
 
 | What | Result |
 |---|---|
 | um/uh detected on the NASA sample | 9 |
-| Goblin edit on the NASA sample (Deepgram re-check per pass) | 9 → 2 → 0 fillers; 61 of 62 content words kept (1 changed word is shown) |
+| Goblin edit on the NASA sample (Deepgram re-check per pass) | 9 → 2 → 0 detected fillers; transcript content words 62 → 61 (ASR count, re-checked with the same engine; the differing word is shown) |
 | Synthetic TTS voices (6 voices × 2 tries) | fillers mostly **not** detected — why the demo uses a real recording |
-| 11 real podcast clips (NASA HWHAP + Hacker Public Radio): words lost by the cutter | 2 / 11 |
+| 11 real podcast clips (NASA HWHAP + Hacker Public Radio): transcript differences after the cut | 2 / 11 (suspected; not confirmed by ear — may be ASR noise) |
 | Planted missing word caught by the checker | 8 / 11 (misses short words like “So”, “I”) |
 
-Limits: English “um”/“uh” only (Deepgram does not tag “hmm”/“erm”). The edit shows a target; it is not proof that you improved. Free takes are not checked for topic.
+Limits: English “um”/“uh” only (Deepgram does not tag “hmm”/“erm”). The re-check uses the same Deepgram model as detection, so shared mistakes are possible; word counts are transcript counts, not proof that the audio is intact. The edit shows a target; it is not proof that you improved. Free takes are not checked for topic.
 
 ## Run locally
 
